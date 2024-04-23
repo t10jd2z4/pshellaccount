@@ -1,0 +1,82 @@
+# Function to recursively search for specific strings in files of given extensions
+function SearchFilesForStrings {
+    param(
+        [string] $rootPath,
+        [string[]] $extensions,
+        [string[]] $keywords,
+        [string] $outputFilePath
+    )
+
+    # Clear existing content in the output file
+    Clear-Content -Path $outputFilePath
+
+    # Iterate over each file with the specified extensions in the root path
+    foreach ($extension in $extensions) {
+        Get-ChildItem -Path $rootPath -Recurse -File -Filter "*$extension" | ForEach-Object {
+            $filePath = $_.FullName
+
+            # Output current file being searched
+            Write-Host "Searching in: $filePath"
+
+            # Read file content based on file type
+            $fileContent = switch -Wildcard ($extension) {
+                '.doc', '.docx', '.pdf', '.xlsx', '.pptx', '.txt', '.csv', '.json', '.xml', '.html', '.ini', '.yaml', '.toml', '.properties', '.md' {
+                    Get-Content -Path $filePath -Raw
+                }
+                default {
+                    # Unsupported file type (skip)
+                    continue
+                }
+            }
+
+            # Check if any of the keywords exist in the file content
+            foreach ($keyword in $keywords) {
+                if ($fileContent -match $keyword) {
+                    # Output and log the file path and keyword found
+                    $result = "Found '$keyword' in file: $filePath"
+                    Write-Host $result
+
+                    # Append result to the output file
+                    Add-Content -Path $outputFilePath -Value $result
+                }
+            }
+        }
+    }
+}
+
+# Display a folder browser dialog to select the root path
+$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+$folderBrowser.Description = "Select the root directory to search"
+$folderBrowser.ShowNewFolderButton = $false
+
+# Show the folder browser dialog and capture the selected source path
+$dialogResult = $folderBrowser.ShowDialog()
+
+if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+    $sourcePath = $folderBrowser.SelectedPath
+
+    # Define the file extensions to search for
+    $extensions = @('.doc', '.docx', '.pdf', '.xlsx', '.pptx', '.txt', '.csv', '.json', '.xml', '.html', '.ini', '.yaml', '.toml', '.properties', '.md')
+
+    # Define keywords to search for (e.g., passwords, credentials, API keys, hashes)
+    $keywords = "password", "credential", "apikey", "token", "secret", "hash", "auth_token", "access_token", "private_key", "public_key", "client_secret", "username", "user", "email"
+
+    # Specify the output file path for saving the results
+    $outputBrowser = New-Object System.Windows.Forms.SaveFileDialog
+    $outputBrowser.Title = "Select the output file path to save the results"
+    $outputBrowser.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
+
+    # Show the output file browser dialog and capture the selected output path
+    $outputDialogResult = $outputBrowser.ShowDialog()
+
+    if ($outputDialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+        $outputFilePath = $outputBrowser.FileName
+
+        # Perform the search
+        SearchFilesForStrings -rootPath $sourcePath -extensions $extensions -keywords $keywords -outputFilePath $outputFilePath
+    } else {
+        Write-Host "Output file selection canceled."
+    }
+} else {
+    Write-Host "Source directory selection canceled."
+}
