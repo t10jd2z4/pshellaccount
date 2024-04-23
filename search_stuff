@@ -19,9 +19,10 @@ function SearchFilesForStrings {
             Write-Host "Searching in: $filePath"
 
             # Read file content based on file type
-            $fileContent = switch -Wildcard ($extension) {
+            $fileContent = ""
+            switch -Wildcard ($extension) {
                 '.doc', '.docx', '.pdf', '.xlsx', '.pptx', '.txt', '.csv', '.json', '.xml', '.html', '.ini', '.yaml', '.toml', '.properties', '.md' {
-                    Get-Content -Path $filePath -Raw
+                    $fileContent = Get-Content -Path $filePath -Raw
                 }
                 default {
                     # Unsupported file type (skip)
