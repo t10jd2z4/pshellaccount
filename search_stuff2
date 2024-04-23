@@ -21,34 +21,23 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
     Clear-Content -Path $outputFilePath
 
     # Recursively search through all files in the specified directory
-    Get-ChildItem -Path $rootPath -Recurse -File -Force | ForEach-Object {
+    Get-ChildItem -Path $rootPath -Recurse -File | ForEach-Object {
         $filePath = $_.FullName
 
         # Output current directory being searched
         Write-Host "Searching in: $filePath"
 
-        # Read file content as a single string for supported file types
-        if ($_.Extension -match "\.pdf|\.docx|\.xlsx|\.pptx|\.txt|\.csv|\.json|\.xml|\.html|\.xlsx|\.doc|\.ini|\.yaml|\.toml|\.properties|\.md") {
-            $fileContent = Get-Content -Path $filePath -Raw
-        }
-        else {
-            # Skip unsupported file types
-            Write-Host "Skipping unsupported file: $filePath"
-            return
-        }
-
-        # Check if any of the keywords exist in the file content
+        # Read file content and search for lines containing any of the keywords
+        $fileContent = Get-Content -Path $filePath -ErrorAction SilentlyContinue
         foreach ($keyword in $keywords) {
             $matchingLines = $fileContent | Select-String -Pattern $keyword -SimpleMatch
-            if ($matchingLines) {
+            foreach ($line in $matchingLines.Line) {
                 # Append matching lines along with file path to the output file
-                foreach ($line in $matchingLines) {
-                    $result = "Found '$keyword' in file: $filePath`nLine $($line.LineNumber): $($line.Line)"
-                    Write-Host $result
+                $result = "Found '$keyword' in file: $filePath`nLine: $line"
+                Write-Host $result
 
-                    # Append full line to the output file
-                    Add-Content -Path $outputFilePath -Value "Found '$keyword' in file: $filePath`nLine $($line.LineNumber): $($line.Line)"
-                }
+                # Append matched line to the output file
+                Add-Content -Path $outputFilePath -Value $result
             }
         }
     }
