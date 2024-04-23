@@ -27,6 +27,13 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
         # Output current directory being searched
         Write-Host "Searching in: $filePath"
 
+        # Check file extension to skip unsupported file types
+        $supportedExtensions = ".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".json", ".xml", ".html", ".xlsx", ".doc", ".ini", ".yaml", ".toml", ".properties", ".md"
+        if ($supportedExtensions -notcontains $_.Extension) {
+            Write-Host "Skipping unsupported file: $filePath"
+            return
+        }
+
         # Read file content and search for lines containing any of the keywords
         $fileContent = Get-Content -Path $filePath -ErrorAction SilentlyContinue
         foreach ($keyword in $keywords) {
