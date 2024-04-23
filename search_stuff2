@@ -31,12 +31,12 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
         $fileContent = Get-Content -Path $filePath -ErrorAction SilentlyContinue
         foreach ($keyword in $keywords) {
             $matchingLines = $fileContent | Select-String -Pattern $keyword -SimpleMatch
-            foreach ($line in $matchingLines.Line) {
-                # Append matching lines along with file path to the output file
-                $result = "Found '$keyword' in file: $filePath`nLine: $line"
+            foreach ($line in $matchingLines) {
+                # Append file path and matched line to the output file
+                $result = "Found '$keyword' in file: $filePath`n$($line.Line)"
                 Write-Host $result
 
-                # Append matched line to the output file
+                # Append result to the output file
                 Add-Content -Path $outputFilePath -Value $result
             }
         }
