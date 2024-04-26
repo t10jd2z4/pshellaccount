@@ -39,8 +39,11 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
         foreach ($keyword in $keywords) {
             $matchingLines = $fileContent | Select-String -Pattern $keyword -SimpleMatch
             foreach ($line in $matchingLines) {
-                # Append file path and matched line to the output file
-                $result = "Found '$keyword' in file: $filePath`n$($line.Line)"
+                # Get last modified date of the file
+                $lastModified = $_.LastWriteTime
+
+                # Append file path, last modified date, and matched line to the output file
+                $result = "Found '$keyword' in file: $filePath (Last Modified: $lastModified)`n$($line.Line)"
                 Write-Host $result
 
                 # Append result to the output file
