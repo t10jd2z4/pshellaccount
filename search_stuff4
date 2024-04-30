@@ -136,3 +136,34 @@ rules:
   - regex: sshpass|password|pwd|passwd|pass[\W_]
     category: password
     description: password keywords
+
+
+Sure, here are some additional regex patterns you can use to search for passwords or secret keys:
+
+    Basic Password Patterns:
+        (password|pass)\s*=\s*['"][^'"]+['"]
+        (secret|key|token)\s*[:=]\s*['"][^'"]+['"]
+
+    SSH Private Keys:
+        -----BEGIN [A-Z]+ PRIVATE KEY( BLOCK)?-----
+
+    Database Connection Strings:
+        connectionString\s*[:=]\s*['"][^'"]+['"]
+        jdbc:oracle:thin:@[^:]+:[0-9]+:[^:]+
+        jdbc:mysql://[^/]+/[^?]+
+
+    API Keys:
+        (api|access)_key\s*[:=]\s*['"][^'"]+['"]
+        Bearer\s*['"][^'"]+['"]
+        api_key=[^&]+
+
+    Secure Hashing Algorithms:
+        md5\([^\)]+\)
+        sha1\([^\)]+\)
+        sha256\([^\)]+\)
+
+    HTTP Basic Authentication Credentials:
+        Basic\s+[A-Za-z0-9+/=]+
+
+    Email and Usernames with Passwords:
+        \b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b:\s*['"][^'"]+['"]
