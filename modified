@@ -1,0 +1,14 @@
+        # Read file content and search for lines containing any of the keywords
+        $fileContent = Get-Content -Path $filePath -ErrorAction SilentlyContinue
+        foreach ($keyword in $keywords) {
+            $matchingLines = $fileContent | Select-String -Pattern $keyword -SimpleMatch
+            foreach ($line in $matchingLines) {
+                # Get last modified date of the file
+                $lastModified = $_.LastWriteTime
+
+                # Append file path, last modified date, and matched line to the output file
+                $result = "Found '$keyword' in file: $filePath (Last Modified: $($lastModified.ToString()))`n$($line.Line)"
+                Write-Host $result
+
+                # Append result to the output file
+                Add-Content -Path $outputFilePath -Value $result
