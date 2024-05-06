@@ -1,0 +1,72 @@
+function Get-FilePaths {
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true,
+            Position = 0)]
+        [String]
+        $SharePath,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $BaseDirectory = $env:USERPROFILE,
+
+        [Parameter(Mandatory = $false)]
+        [Switch]
+        $Force
+    )
+
+    # Prompt the user to select the path
+    if (-not $SharePath) {
+        $SharePath = Read-Host "Enter the share path (e.g., \\server\share)"
+    }
+
+    # The rest of the function remains unchanged...
+}
+
+function Find-SensitiveData {
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true,
+            Position = 0)]
+        [String]
+        $SharePath,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [String]
+        $BaseDirectory = $env:USERPROFILE,
+
+        [Parameter(Mandatory = $false)]
+        [Switch]
+        $Force
+    )
+
+    # Prompt the user to select the path
+    if (-not $SharePath) {
+        $SharePath = Read-Host "Enter the share path (e.g., \\server\share)"
+    }
+
+    # Check files modified within the last 3 months
+    $DateThreshold = (Get-Date).AddMonths(-3)
+
+    # The rest of the function remains unchanged...
+}
+
+function Remove-SensitiveData {
+
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $false)]
+        [String[]]
+        $DataFiles = @("PotentialData-*.txt","FilePaths-*.csv"),
+
+        [Parameter(Mandatory = $false)]
+        [String]
+        $BaseDirectory = "$env:USERPROFILE"
+    )
+
+    # The rest of the function remains unchanged...
+}
