@@ -18,156 +18,6 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
     # Define keywords to search for (e.g., passwords, credentials, API keys)
     $keywords = "password", "credential", "apikey", "token", "secret"
 
-    # Define custom regex patterns for additional searches
-    $customRegexPatterns = @(
-@{ Keyword = "AWS Access Key"; Pattern = "(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}"},
-@{ Keyword = "AWS Secret Key"; Pattern = "(?i)aws(.{0,20})?(?-i)['\\\"][0-9a-zA-Z\\/+]{40}['\\\"]"},
-@{ Keyword = "AWS MWS key"; Pattern = "amzn\\.mws\\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"},
-@{ Keyword = "Github Personal Access Token"; Pattern = "ghp_[0-9a-zA-Z]{36}"},
-@{ Keyword = "Github OAuth Access Token"; Pattern = "gho_[0-9a-zA-Z]{36}"},
-@{ Keyword = "Github App Token"; Pattern = "(ghu|ghs)_[0-9a-zA-Z]{36}"},
-@{ Keyword = "Github Refresh Token"; Pattern = "ghr_[0-9a-zA-Z]{76}"},
-@{ Keyword = "LinkedIn Client ID"; Pattern = "(?i)linkedin(.{0,20})?(?-i)[0-9a-z]{12}"},
-@{ Keyword = "LinkedIn Secret Key"; Pattern = "(?i)linkedin(.{0,20})?[0-9a-z]{16}"},
-@{ Keyword = "Asymmetric Private Key"; Pattern = "-----BEGIN ((EC|PGP|DSA|RSA|OPENSSH) )?PRIVATE KEY( BLOCK)?-----"},
-@{ Keyword = "Google API key";     Pattern = "AIza[0-9A-Za-z\\\\-_]{35}"},
-@{ Keyword = "Google (GCP) Service Account";     Pattern = "\"type\": \"service_account\""},
-@{ Keyword = "SendGrid API Key";     Pattern = "SG\\.[\\w_]{16,32}\\.[\\w_]{16,64}"},
-@{ Keyword = "PyPI upload token";     Pattern = "pypi-AgEIcHlwaS5vcmc[A-Za-z0-9-_]{50,1000}"},
-@{ Keyword = "Google API key";     Pattern = "AIza[0-9A-Za-z\\\\-_]{35}"},
-@{ Keyword = "Generic Credential";     Pattern = "(?i)(dbpasswd|dbuser|dbname|dbhost|api_key|apikey|secret|key|api|password|user|guid|hostname|pw|auth)(.{0,20})?['|\"]([0-9a-zA-Z-_\\/+!{}/=]{4,120})['|\"]"},
-@{ Keyword = "WP-Config";     Pattern = "define(.{0,20})?(DB_CHARSET|NONCE_SALT|LOGGED_IN_SALT|AUTH_SALT|NONCE_KEY|DB_HOST|DB_PASSWORD|AUTH_KEY|SECURE_AUTH_KEY|LOGGED_IN_KEY|DB_NAME|DB_USER)(.{0,20})?['|\"].{10,120}['|\"]"},
-@{ Keyword = "RSA private key";     Pattern = "-----BEGIN RSA PRIVATE KEY-----"},
-@{ Keyword = "SSH (DSA) private key";     Pattern = "-----BEGIN DSA PRIVATE KEY-----"},
-@{ Keyword = "SSH (EC) private key";     Pattern = "-----BEGIN EC PRIVATE KEY-----"},
-@{ Keyword = "PGP private key block";     Pattern = "-----BEGIN PGP PRIVATE KEY BLOCK-----"},
-@{ Keyword = "AWS API Key";     Pattern = "AKIA[0-9A-Z]{16}"},
-@{ Keyword = "AWS AppSync GraphQL Key";     Pattern = "da2-[a-z0-9]{26}"},
-@{ Keyword = "GitHub";     Pattern = '[gG][iI][tT][hH][uU][bB].*[''|"][0-9a-zA-Z]{35,40}[''|"]'},
-@{ Keyword = "Generic API Key";     Pattern = '[aA][pP][iI]_?[kK][eE][yY].*[''|"][0-9a-zA-Z]{32,45}[''|"]'},
-@{ Keyword = "Generic Secret";     Pattern = '[sS][eE][cC][rR][eE][tT].*[''|"][0-9a-zA-Z]{32,45}[''|"]'},
-@{ Keyword = "Google API Key";     Pattern = "AIza[0-9A-Za-z\\-_]{35}"},
-@{ Keyword = "Google Cloud Platform API Key";     Pattern = "AIza[0-9A-Za-z\\-_]{35}"},
-@{ Keyword = "Google Cloud Platform OAuth";     Pattern = "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com"},
-@{ Keyword = "Google Drive API Key";     Pattern = "AIza[0-9A-Za-z\\-_]{35}"},
-@{ Keyword = "Google Drive OAuth";     Pattern = "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com"},
-@{ Keyword = "Google (GCP) Service-account";     Pattern = '"type": "service_account"'},
-@{ Keyword = "Google Gmail API Key";     Pattern = "AIza[0-9A-Za-z\\-_]{35}"},
-@{ Keyword = "Google Gmail OAuth";     Pattern = "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com"},
-@{ Keyword = "Google OAuth Access Token";     Pattern = "ya29\\.[0-9A-Za-z\\-_]+"},
-@{ Keyword = "Google YouTube API Key";     Pattern = "AIza[0-9A-Za-z\\-_]{35}"},
-@{ Keyword = "Google YouTube OAuth";     Pattern = "[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com"},
-@{ Keyword = "Password in URL";     Pattern = "[a-zA-Z]{3,10}://[^/\\s:@]{3,20}:[^/\\s:@]{3,20}@.{1,100}[\"'\\s]"},
-@{ Keyword = "AWS API Gateway";     Pattern = "[0-9a-z]+.execute-api.[0-9a-z.-_]+.amazonaws.com"},
-@{ Keyword = "AWS ARN";     Pattern = "arn:aws:[a-z0-9-]+:[a-z]{2}-[a-z]+-[0-9]+:[0-9]+:.+"},
-@{ Keyword = "AWS Client ID";     Pattern = "(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}"},
-@{ Keyword = "AWS CloudFront";     Pattern = "[0-9a-z.-_]+.cloudfront.net"},
-@{ Keyword = "AWS EC2 External";     Pattern = "ec2-[0-9a-z.-_]+.compute(-1)?.amazonaws.com"},
-@{ Keyword = "AWS EC2 Internal";     Pattern = "[0-9a-z.-_]+.compute(-1)?.internal"},
-@{ Keyword = "AWS ELB";     Pattern = "[0-9a-z.-_]+.elb.[0-9a-z.-_]+.amazonaws.com"},
-@{ Keyword = "AWS ELB";     Pattern = "[0-9a-z.-_]+.elb.amazonaws.com"},
-@{ Keyword = "AWS ElasticCache";     Pattern = "[0-9a-z.-_]+.cache.amazonaws.com"},
-@{ Keyword = "AWS S3 Bucket";     Pattern = "s3://[0-9a-z.-_/]+"},
-@{ Keyword = "GitHub Token";     Pattern = "github(.{0,20})?['\"][0-9a-z]{35,40}['\"]"},
-@{ Keyword = "RKCS8";     Pattern = "-----BEGIN PRIVATE KEY-----"},
-@{ Keyword = "RSA";     Pattern = "-----BEGIN RSA PRIVATE KEY-----"},
-@{ Keyword = "access_key_secret";     Pattern = "access[_-]?key[_-]?secret(=| =|:| :)"},
-@{ Keyword = "access_secret";     Pattern = "access[_-]?secret(=| =|:| :)"},
-@{ Keyword = "access_token";     Pattern = "access[_-]?token(=| =|:| :)"},
-@{ Keyword = "account_sid";     Pattern = "account[_-]?sid(=| =|:| :)"},
-@{ Keyword = "admin_email";     Pattern = "admin[_-]?email(=| =|:| :)"},
-@{ Keyword = "amazon_bucket_name";     Pattern = "amazon[_-]?bucket[_-]?name(=| =|:| :)"},
-@{ Keyword = "amazon_secret_access_key";     Pattern = "amazon[_-]?secret[_-]?access[_-]?key(=| =|:| :)"},
-@{ Keyword = "ansible_vault_password";     Pattern = "ansible[_-]?vault[_-]?password(=| =|:| :)"},
-@{ Keyword = "api_key";     Pattern = "api[_-]?key(=| =|:| :)"},
-@{ Keyword = "api_key_secret";     Pattern = "api[_-]?key[_-]?secret(=| =|:| :)"},
-@{ Keyword = "api_key_sid";     Pattern = "api[_-]?key[_-]?sid(=| =|:| :)"},
-@{ Keyword = "api_secret";     Pattern = "api[_-]?secret(=| =|:| :)"},
-@{ Keyword = "apiary_api_key";     Pattern = "apiary[_-]?api[_-]?key(=| =|:| :)"},
-@{ Keyword = "apigw_access_token";     Pattern = "apigw[_-]?access[_-]?token(=| =|:| :)"},
-@{ Keyword = "apikey_patterns";     Pattern = "(?i)apikey[:](?:['\"]?[a-zA-Z0-9-_|]+['\"]?)"},
-@{ Keyword = "app_bucket_perm";     Pattern = "app[_-]?bucket[_-]?perm(=| =|:| :)"},
-@{ Keyword = "apple_id_password";     Pattern = "apple[_-]?id[_-]?password(=| =|:| :)"},
-@{ Keyword = "auth0_api_clientsecret";     Pattern = "auth0[_-]?api[_-]?clientsecret(=| =|:| :)"},
-@{ Keyword = "auth0_client_secret";     Pattern = "auth0[_-]?client[_-]?secret(=| =|:| :)"},
-@{ Keyword = "auth_token";     Pattern = "auth[_-]?token(=| =|:| :)"},
-@{ Keyword = "azure_blob";     Pattern = "(http(?:s)://.[^><'\" \n)]+.blob.core.windows.net/.[^><'\" \n/)]+./)"},
-@{ Keyword = "chrome_client_secret";     Pattern = "chrome[_-]?client[_-]?secret(=| =|:| :)"},
-@{ Keyword = "cloud_api_key";     Pattern = "cloud[_-]?api[_-]?key(=| =|:| :)"},
-@{ Keyword = "digitalocean_access_token";     Pattern = "digitalocean[_-]?access[_-]?token(=| =|:| :)"},
-@{ Keyword = "digitalocean_space";     Pattern = "(http(?:s)://[^><.'\" \n)]+.[^><.'\" \n)]+.[^><.'\" \n)]+.digitaloceanspaces.com)"},
-@{ Keyword = "digitalocean_ssh_key_body";     Pattern = "digitalocean[_-]?ssh[_-]?key[_-]?body(=| =|:| :)"},
-@{ Keyword = "digitalocean_ssh_key_ids";     Pattern = "digitalocean[_-]?ssh[_-]?key[_-]?ids(=| =|:| :)"},
-@{ Keyword = "docker_hub_password";     Pattern = "docker[_-]?hub[_-]?password(=| =|:| :)"},
-@{ Keyword = "docker_key";     Pattern = "docker[_-]?key(=| =|:| :)"},
-@{ Keyword = "docker_pass";     Pattern = "docker[_-]?pass(=| =|:| :)"},
-@{ Keyword = "docker_passwd";     Pattern = "docker[_-]?passwd(=| =|:| :)"},
-@{ Keyword = "dropbox_oauth_bearer";     Pattern = "dropbox[_-]?oauth[_-]?bearer(=| =|:| :)"},
-@{ Keyword = "elastic_cloud_auth";     Pattern = "elastic[_-]?cloud[_-]?auth(=| =|:| :)"},
-@{ Keyword = "elasticsearch_password";     Pattern = "elasticsearch[_-]?password(=| =|:| :)"},
-@{ Keyword = "ftp_host";     Pattern = "ftp[_-]?host(=| =|:| :)"},
-@{ Keyword = "ftp_login";     Pattern = "ftp[_-]?login(=| =|:| :)"},
-@{ Keyword = "ftp_password";     Pattern = "ftp[_-]?password(=| =|:| :)"},
-@{ Keyword = "ftp_pw";     Pattern = "ftp[_-]?pw(=| =|:| :)"},
-@{ Keyword = "ftp_user";     Pattern = "ftp[_-]?user(=| =|:| :)"},
-@{ Keyword = "ftp_username";     Pattern = "ftp[_-]?username(=| =|:| :)"},
-@{ Keyword = "gcloud_bucket";     Pattern = "gcloud[_-]?bucket(=| =|:| :)"},
-@{ Keyword = "gcloud_project";     Pattern = "gcloud[_-]?project(=| =|:| :)"},
-@{ Keyword = "gcloud_service_key";     Pattern = "gcloud[_-]?service[_-]?key(=| =|:| :)"},
-@{ Keyword = "gcp_api_key";     Pattern = "(AIza[0-9A-Za-z-_]{35})"},
-@{ Keyword = "gcr_password";     Pattern = "gcr[_-]?password(=| =|:| :)"},
-@{ Keyword = "gcs_bucket";     Pattern = "gcs[_-]?bucket(=| =|:| :)"},
-@{ Keyword = "gh_api_key";     Pattern = "gh[_-]?api[_-]?key(=| =|:| :)"},
-@{ Keyword = "gh_email";     Pattern = "gh[_-]?email(=| =|:| :)"},
-@{ Keyword = "google_oauth";     Pattern = "(ya29.[0-9A-Za-z-_]+)"},
-@{ Keyword = "google_private_key";     Pattern = "google[_-]?private[_-]?key(=| =|:| :)"},
-@{ Keyword = "google_url";     Pattern = "([0-9]{12}-[a-z0-9]{32}.apps.googleusercontent.com)"},
-@{ Keyword = "kubecfg_s3_path";     Pattern = "kubecfg[_-]?s3[_-]?path(=| =|:| :)"},
-@{ Keyword = "kubeconfig";     Pattern = "kubeconfig(=| =|:| :)"},
-@{ Keyword = "linkedin_client_id";     Pattern = "(linkedin(.{0,20})?(?-i)['\"][0-9a-z]{12}['\"])"},
-@{ Keyword = "linkedin_client_secretor lottie_s3_api_key";     Pattern = "linkedin[_-]?client[_-]?secretor lottie[_-]?s3[_-]?api[_-]?key(=| =|:| :)"},
-@{ Keyword = "linkedin_secret_key";     Pattern = "(linkedin(.{0,20})?['\"][0-9a-z]{16}['\"])"},
-@{ Keyword = "mysql_password";     Pattern = "mysql[_-]?password(=| =|:| :)"},
-@{ Keyword = "mysql_root_password";     Pattern = "mysql[_-]?root[_-]?password(=| =|:| :)"},
-@{ Keyword = "ngrok_auth_token";     Pattern = "ngrok[_-]?auth[_-]?token(=| =|:| :)"},
-@{ Keyword = "oauth_token";     Pattern = "oauth[_-]?token(=| =|:| :)"},
-@{ Keyword = "rabbitmq_password";     Pattern = "rabbitmq[_-]?password(=| =|:| :)"},
-@{ Keyword = "salesforce_bulk_test_password";     Pattern = "salesforce[_-]?bulk[_-]?test[_-]?password(=| =|:| :)"},
-@{ Keyword = "salesforce_bulk_test_security_token";     Pattern = "salesforce[_-]?bulk[_-]?test[_-]?security[_-]?token(=| =|:| :)"},
-@{ Keyword = "wordpress_db_password";     Pattern = "wordpress[_-]?db[_-]?password(=| =|:| :)"},
-@{ Keyword = "Splunkobservabilitytoken";     Pattern = "(?i)(?:splunk).{0,40}\\b([a-z0-9A-Z]{22})\\b"},
-@{ Keyword = "Kanban - 1";     Pattern = "(?i)(?:kanban).{0,40}\\b([0-9A-Z]{12})\\b"},
-@{ Keyword = "Kanban - 2";     Pattern = "\\b([0-9a-z]{1,}.kanbantool.com)\\b"},
-@{ Keyword = "Virustotal";     Pattern = "(?i)(?:virustotal).{0,40}\\b([a-f0-9]{64})\\b"},
-@{ Keyword = "Pastebin";     Pattern = "(?i)(?:pastebin).{0,40}\\b([a-zA-Z0-9_]{32})\\b"},
-@{ Keyword = "Thousandeyes - 1";     Pattern = "(?i)(?:thousandeyes).{0,40}\\b([a-zA-Z0-9]{32})\\b"},
-@{ Keyword = "Thousandeyes - 2";     Pattern = "(?i)(?:thousandeyes).{0,40}\\b([a-zA-Z0-9]{3,20}@[a-zA-Z0-9]{2,12}.[a-zA-Z0-9]{2,5})\\b"},
-@{ Keyword = "Jiratoken - 1";     Pattern = "(?i)(?:jira).{0,40}\\b([a-zA-Z-0-9]{24})\\b"},
-@{ Keyword = "Jiratoken - 2";     Pattern = "(?i)(?:jira).{0,40}\\b([a-zA-Z-0-9]{5,24}\\@[a-zA-Z-0-9]{3,16}\\.com)\\b"},
-@{ Keyword = "Jiratoken - 3";     Pattern = "(?i)(?:jira).{0,40}\\b([a-zA-Z-0-9]{5,24}\\.[a-zA-Z-0-9]{3,16}\\.[a-zA-Z-0-9]{3,16})\\b"},
-@{ Keyword = "Shodankey";     Pattern = "(?i)(?:shodan).{0,40}\\b([a-zA-Z0-9]{32})\\b"},
-@{ Keyword = "Microsoftteamswebhook";     Pattern = "(https:\\/\\/[a-zA-Z-0-9]+\\.webhook\\.office\\.com\\/webhookb2\\/[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12}\\@[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12}\\/IncomingWebhook\\/[a-zA-Z-0-9]{32}\\/[a-zA-Z-0-9]{8}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{4}-[a-zA-Z-0-9]{12})"},
-@{ Keyword = "Webex - 1";     Pattern = "(?i)(?:error).{0,40}(redirect_uri_mismatch)"},
-@{ Keyword = "Webex - 2";     Pattern = "(?i)(?:webex).{0,40}\\b([A-Za-z0-9_-]{65})\\b"},
-@{ Keyword = "Webex - 3";     Pattern = "(?i)(?:webex).{0,40}\\b([A-Za-z0-9_-]{64})\\b"},
-@{ Keyword = "Cloudflarecakey";     Pattern = "(?i)(?:cloudflare).{0,40}\\b(v[A-Za-z0-9._-]{173,})\\b"},
-@{ Keyword = "jwt	Pattern = "\b(ey[a-zA-Z0-9]{17,}\.ey[a-zA-Z0-9\/\\_-]{17,}\.(?:[a-zA-Z0-9\/\\_-]{10,}={0,2})?)(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "grafana-service-account-tokenPattern = "(?i)\b(glsa_[A-Za-z0-9]{32}_[A-Fa-f0-9]{8})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "grafana-api-keyPattern = "(?i)\b(eyJrIjoi[A-Za-z0-9]{70,400}={0,2})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "grafana-cloud-api-tokenPattern = "(?i)\b(glc_[A-Za-z0-9+/]{32,400}={0,2})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "confluent-access-tokenPattern = "(?i)(?:confluent)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9]{16})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "confluent-secret-keyPattern = "(?i)(?:confluent)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9]{64})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "digitalocean-access-tokenPattern = "(?i)\b(doo_v1_[a-f0-9]{64})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "digitalocean-patPattern = "(?i)\b(dop_v1_[a-f0-9]{64})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "digitalocean-refresh-tokenPattern = "(?i)\b(dor_v1_[a-f0-9]{64})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "asana-client-idPattern = "(?i)(?:asana)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([0-9]{16})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "asana-client-secretPattern = "(?i)(?:asana)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9]{32})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "atlassian-api-tokenPattern = "(?i)(?:atlassian|confluence|jira)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9]{24})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "aws-access-tokenPattern = "(?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}"},
-@{ Keyword = "bitbucket-client-idPattern = "(?i)(?:bitbucket)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9]{32})(?:['|\"|\n|\r|\s|\x60|;]|$)"},
-@{ Keyword = "bitbucket-client-secretPattern = "(?i)(?:bitbucket)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([a-z0-9=_\-]{64})(?:['|\"|\n|\r|\s|\x60|;]|$)"}
-    )
-
     # Specify the output file path for saving the results
     $outputFilePath = "C:\path\to\results.txt"
 
@@ -183,53 +33,16 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
         "years" { $startDate = (Get-Date).AddYears(-$timeFrame) }
     }
 
-    # Recursively search through all files in the specified directory
-    Get-ChildItem -Path $rootPath -Recurse -File | ForEach-Object {
-        $filePath = $_.FullName
-
-        # Get the last modified date of the file
-        $lastModified = $_.LastWriteTime
-
-        # Skip files modified before the start date
-        if ($lastModified -lt $startDate) {
-            Write-Host "Skipping file modified before the specified time frame: $filePath"
-            continue
-        }
-
-        # Output current directory being searched
-        Write-Host "Searching in: $filePath"
-
-        # Check file extension to skip unsupported file types
-        $supportedExtensions = ".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".csv", ".json", ".xml", ".html", ".xlsx", ".doc", ".ini", ".yaml", ".toml", ".properties", ".md"
-        if ($supportedExtensions -notcontains $_.Extension) {
-            Write-Host "Skipping unsupported file: $filePath"
-            continue
-        }
-
-        # Try to read file content and search for lines containing any of the keywords
+    # Function to search for keywords in a file
+    function SearchFile {
+        param($filePath)
         try {
-            $fileContent = Get-Content -Path $filePath -ErrorAction Stop
+            $fileContent = Get-Content -Path $filePath -ReadCount 0
             foreach ($keyword in $keywords) {
                 $matchingLines = $fileContent | Select-String -Pattern $keyword -SimpleMatch
                 foreach ($line in $matchingLines) {
                     # Append file path and matched line to the output file
                     $result = "Found '$keyword' in file: $filePath`n$($line.Line)"
-                    Write-Host $result
-
-                    # Append result to the output file
-                    Add-Content -Path $outputFilePath -Value $result
-                }
-            }
-
-            # Search for additional patterns using custom regex
-            foreach ($customRegex in $customRegexPatterns) {
-                $matchingLines = $fileContent | Select-String -Pattern $customRegex.Pattern -SimpleMatch
-                foreach ($line in $matchingLines) {
-                    # Append file path and matched line to the output file
-                    $result = "Found '$($customRegex.Keyword)' in file: $filePath`n$($line.Line)"
-                    Write-Host $result
-
-                    # Append result to the output file
                     Add-Content -Path $outputFilePath -Value $result
                 }
             }
@@ -238,6 +51,11 @@ if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "IOException occurred: $($_.Exception.Message). Skipping file: $filePath"
         }
     }
+
+    # Recursively search through all files in the specified directory
+    Get-ChildItem -Path $rootPath -Recurse -File | ForEach-Object -Parallel {
+        if ($_.LastWriteTime -ge $startDate) {
+            SearchFile $_.FullName
+        }
+    }
 }
-
-
