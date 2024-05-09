@@ -1,0 +1,261 @@
+# Function to prompt user for directory path
+function Get-DirectoryPath {
+    $directoryPath = Read-Host "Enter directory path:"
+    return $directoryPath
+}
+
+# Function to prompt user for file path
+function Get-FilePath {
+    $filePath = Read-Host "Enter file path:"
+    return $filePath
+}
+
+# Function to read keywords from file
+function Get-Keywords {
+    $keywords = Get-Content $keywordsFilePath
+    return $keywords
+}
+
+# Function to generate a random directory name
+function Generate-RandomDirectoryName {
+    $randomName = [System.IO.Path]::GetRandomFileName()
+    return $randomName
+}
+
+# Function to get files less than 3 months old with specified extensions
+function Get-RecentFiles {
+    $cutOffDate = (Get-Date).AddMonths(-3)
+    $recentFiles = Get-ChildItem -Path $sharedDrivePath -Recurse |
+                   Where-Object { $_.LastWriteTime -ge $cutOffDate -and $_.Extension -in $fileExtensions }
+    return $recentFiles
+}
+
+# Function to scan files for keywords line by line
+function Scan-Files {
+    param (
+        [System.IO.FileInfo[]]$files,
+        [string[]]$keywords
+    )
+
+    $progress = 0
+    $totalFiles = $files.Count
+
+    foreach ($file in $files) {
+        Write-Progress -Activity "Scanning Files" -Status "Progress: $($progress / $totalFiles * 100)%" -PercentComplete ($progress / $totalFiles * 100)
+        $progress++
+
+        foreach ($keyword in $keywords) {
+            $keywordFileName = "{0}__{1}.txt" -f $artifactsDirectoryName, $keyword
+            $keywordFilePath = Join-Path -Path $artifactsDirectoryPath -ChildPath $keywordFileName
+            
+            # Check file extension
+            $extension = $file.Extension.ToLower()
+            if ($extension -eq ".pdf") {
+                # Read PDF using iTextSharp library
+                $pdfReader = New-Object iTextSharp.text.pdf.PdfReader($file.FullName)
+                $numPages = $pdfReader.NumberOfPages
+                for ($page = 1; $page -le $numPages; $page++) {
+                    $text = [iTextSharp.text.pdf.parser.PdfTextExtractor]::GetTextFromPage($pdfReader, $page)
+                    if ($text -match $keyword) {
+                        Add-Content -Path $keywordFilePath -Value $file.FullName
+                        break  # Once keyword is found, move to the next file
+                    }
+                }
+                $pdfReader.Close()
+            }
+            elseif ($extension -eq ".docx" -or $extension -eq ".xlsx" -or $extension -eq ".pptx") {
+                # Read Office documents using Microsoft Office Interop libraries
+                Add-Type -AssemblyName Microsoft.Office.Interop.Word
+                Add-Type -AssemblyName Microsoft.Office.Interop.Excel
+                Add-Type -AssemblyName Microsoft.Office.Interop.PowerPoint
+                
+                $app = New-Object -ComObject Word.Application
+                $app.Visible = $false
+                
+                if ($extension -eq ".docx") {
+                    $doc = $app.Documents.Open($file.FullName)
+                    $content = $doc.Content.Text
+                }
+                elseif ($extension -eq ".xlsx") {
+                    $workbook = $app.Workbooks.Open($file.FullName)
+                    $content = $workbook.Sheets.Item(1).Cells.Text
+                }
+                elseif ($extension -eq ".pptx") {
+                    $presentation = $app.Presentations.Open($file.FullName)
+                    $content = $presentation.Content.Text
+                }
+                
+                $app.Quit()
+                $app = $null
+                
+                if ($content -match $keyword) {
+                    Add-Content -Path $keywordFilePath -Value $file.FullName
+                }
+            }
+            else {
+                # Read other file types line by line
+                $reader = [System.IO.StreamReader]::new($file.FullName)
+                while ($line = $reader.ReadLine()) {
+                    if ($line -match $keyword) {
+                        Add-Content -Path $keywordFilePath -Value $file.FullName
+                        break  # Once keyword is found in the line, move to the next file
+                    }
+                }
+                $reader.Close()
+            }
+        }
+    }
+}
+
+# Function to save a list of files in each directory
+function Save-FilesList {
+    $directories = Get-ChildItem -Path $sharedDrivePath -Directory -Recurse
+    foreach ($directory in $directories) {
+        $filesList = Get-ChildItem -Path $directory.FullName -File | Select-Object -ExpandProperty FullName
+        $filesListFileName = Join-Path -Path $artifactsDirectoryPath -ChildPath "$($directory.Name)_FilesList.txt"
+        $filesList | Out-File -FilePath $filesListFileName
+    }
+}
+
+# Main script
+Clear-Host
+Write-Host "Welcome to the Artifact Scanner Script"
+Write-Host "--------------------------------------"
+
+# List of file extensions to search for
+$fileExtensions = ".conf", ".cfg", ".sh", ".py", ".bat", ".ps1", ".db", ".sqlite", ".sql", ".txt",
+                  ".log", ".passwd", ".shadow", ".reg", ".pem", ".key", ".crt", ".pfx", ".cer",
+                  ".ssh", ".ftpconfig", ".ini", ".json", ".ovpn", ".pdf", ".docx", ".xlsx", ".pptx",
+                  ".xml", ".html", ".yaml", ".toml", ".properties", ".md"
+
+# Get files less than 3 months old with specified extensions
+$recentFiles = Get-RecentFiles
+
+# Request for shared drive to scan
+$sharedDrivePath = Get-DirectoryPath
+
+# Request for output directory
+$outputDirectoryPath = Get-DirectoryPath
+
+# Request for file containing keywords
+$keywordsFilePath = Get-FilePath
+
+# Validate paths
+if (!(Test-Path $sharedDrivePath -PathType Container)) {
+    Write-Host "Error: Shared drive path doesn't exist." -ForegroundColor Red
+    exit
+}
+
+if (!(Test-Path $outputDirectoryPath -PathType Container)) {
+    Write-Host "Error: Output directory path doesn't exist." -ForegroundColor Red
+    exit
+}
+
+if (!(Test-Path $keywordsFilePath -PathType Leaf)) {
+    Write-Host "Error: Keywords file doesn't exist." -ForegroundColor Red
+    exit
+}
+
+# Read keywords from file
+$keywords = Get-Keywords
+
+# Generate random directory name
+$artifactsDirectoryName = Generate-RandomDirectoryName
+$artifactsDirectoryPath = Join-Path -Path $outputDirectoryPath -ChildPath $artifactsDirectoryName
+
+# Create directory for artifacts
+New-Item -Path $artifactsDirectoryPath -ItemType Directory -Force | Out-Null
+
+# Create necessary files within the directory if they don't exist
+foreach ($keyword in $keywords) {
+    $fileName = "{0}__{1}.txt" -f $artifactsDirectoryName, $keyword
+    $filePath = Join-Path -Path $artifactsDirectoryPath -ChildPath $fileName
+    if (!(Test-Path $filePath)) {
+        New-Item -Path $filePath -ItemType File -Force | Out-Null
+    }
+}
+
+Write-Host "Initialization complete. Ready to proceed with scanning." -ForegroundColor Green
+
+# Get files less than 3 months old
+$recentFiles = Get-RecentFiles
+
+# Scan files for keywords
+Scan-Files -files $recentFiles -keywords $keywords
+
+# Save a list of files in each directory
+Save-FilesList
+
+Write-Host "Scanning complete. Artifacts saved in directory: $artifactsDirectoryPath" -ForegroundColor Green
+
+# Function to generate HTML report
+function Generate-HTMLReport {
+    param (
+        [string[]]$keywords
+    )
+
+    $reportFilePath = Join-Path -Path $artifactsDirectoryPath -ChildPath "report.html"
+
+    $html = @"
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Artifact Scanner Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      color: #333;
+    }
+    .keyword-section {
+      margin-bottom: 20px;
+    }
+    .keyword-header {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .artifact-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    .artifact-item {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Artifact Scanner Report</h1>
+"@
+
+    foreach ($keyword in $keywords) {
+        $keywordFileName = "{0}__{1}.txt" -f $artifactsDirectoryName, $keyword
+        $keywordFilePath = Join-Path -Path $artifactsDirectoryPath -ChildPath $keywordFileName
+
+        $keywordHeader = "<div class='keyword-section'><div class='keyword-header'>Keyword: $keyword</div>"
+        $keywordContent = "<ul class='artifact-list'>"
+        $keywordContent += Get-Content $keywordFilePath | ForEach-Object {
+            "<li class='artifact-item'>$_</li>"
+        }
+        $keywordContent += "</ul></div>"
+
+        $html += $keywordHeader + $keywordContent
+    }
+
+    $html += @"
+</body>
+</html>
+"@
+
+    $html | Out-File -FilePath $reportFilePath
+}
+
+# Main script
+# Previous code...
+
+# Generate HTML report
+Generate-HTMLReport -keywords $keywords
+
+Write-Host "HTML report generated: $reportFilePath" -ForegroundColor Green
+
