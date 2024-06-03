@@ -1,49 +1,51 @@
 import requests
 import json
 
-# Base URL of the API
-base_url = "https://api.example.com/techniques/"
-# Bearer token
-bearer_token = "your_bearer_token_here"
-
-# Function to make API requests
-def search_technique(technique):
-    url = base_url + str(technique)
-    headers = {"Authorization": f"Bearer {bearer_token}"}
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    if response.status_code == 200:
-        # Add technique to the response
-        data["technique"] = str(technique)
-    return data
-
-# Function to filter and select a result
-def select_result(results):
-    # Check if response text contains "host cli" or "protected theater"
-    for result in results:
-        if "host cli" in result["text"]:
-            return result
-        elif "protected theater" in result["text"]:
-            return result
-    return None
-
 # Read techniques from file
 with open("techniques.txt", "r") as file:
-    techniques = file.read().splitlines()
+    techniques_values = file.read().strip().split('\n')  # Assuming each technique ID is on a separate line
 
-# Iterate over techniques, search and modify the response
-results = []
-for technique in techniques:
-    result = search_technique(technique)
-    if result:
-        if "results" in result:
-            selected_result = select_result(result["results"])
-            if selected_result:
-                result["result"] = selected_result
-                results.append(result)
+# Create a dictionary to store results
+all_results = {}
 
-# Save results to a file
+# Make the request for each technique
+for technique_value in techniques_values:
+    # Make the request with techniques value from file
+    response = requests.get('https://api.example.com/techniques/', params={'techniques': technique_value}, headers={'Authorization': 'Bearer your_bearer_token_here'})
+    
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Convert response to JSON
+        data = response.json()
+        
+        # Extract results for the technique
+        technique_results = data.get('results', [])
+        
+        # Store results for the technique
+        all_results[technique_value] = technique_results
+        
+        # Print error message for unsuccessful requests
+        if response.status_code != 200:
+            print(f"Error for technique {technique_value}:", response.status_code)
+
+# Create a dictionary to structure the JSON file
+actions_with_techniques_results = {'actions': {}}
+
+# Add technique results to the actions dictionary
+for technique_value, technique_results in all_results.items():
+    results_with_technique_id = []
+    for result in technique_results:
+        result_with_technique_id = {
+            'technique_id': technique_value,
+            'name': result.get('name', ''),
+            'id': result.get('id', ''),
+            'description': result.get('description', '')
+        }
+        results_with_technique_id.append(result_with_technique_id)
+    actions_with_techniques_results['actions'][technique_value] = results_with_technique_id
+
+# Save all results to a file
 with open("results.json", "w") as outfile:
-    json.dump(results, outfile, indent=4)
+    json.dump(actions_with_techniques_results, outfile, indent=4)
 
 print("Results saved to results.json")
