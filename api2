@@ -35,29 +35,31 @@ for technique_value in techniques_values:
             
             # Store results for the technique
             all_results[technique_value] = technique_results
-            
-            # Print error message for unsuccessful requests
         else:
             print(f"Error for technique {technique_value}: {response.status_code}")
 
-# Create a dictionary to structure the JSON file
-actions_with_techniques_results = {'actions': {}}
+# Only proceed if there are results to include
+if all_results:
+    # Create a dictionary to structure the JSON file
+    actions_with_techniques_results = {'actions': {}}
 
-# Add technique results to the actions dictionary
-for technique_value, technique_results in all_results.items():
-    results_with_technique_id = []
-    for result in technique_results:
-        result_with_technique_id = {
-            'technique_id': technique_value,
-            'name': result.get('name', ''),
-            'id': result.get('id', ''),
-            'description': result.get('description', '')
-        }
-        results_with_technique_id.append(result_with_technique_id)
-    actions_with_techniques_results['actions'][technique_value] = results_with_technique_id
+    # Add technique results to the actions dictionary
+    for technique_value, technique_results in all_results.items():
+        results_with_technique_id = []
+        for result in technique_results:
+            result_with_technique_id = {
+                'technique_id': technique_value,
+                'name': result.get('name', ''),
+                'id': result.get('id', ''),
+                'description': result.get('description', '')
+            }
+            results_with_technique_id.append(result_with_technique_id)
+        actions_with_techniques_results['actions'][technique_value] = results_with_technique_id
 
-# Save all results to a file
-with open("results.json", "w") as outfile:
-    json.dump(actions_with_techniques_results, outfile, indent=4)
+    # Save all results to a file
+    with open("results.json", "w") as outfile:
+        json.dump(actions_with_techniques_results, outfile, indent=4)
 
-print("Results saved to results.json")
+    print("Results saved to results.json")
+else:
+    print("No results to save.")
