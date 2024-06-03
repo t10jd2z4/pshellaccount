@@ -1,0 +1,48 @@
+import requests
+import json
+
+# Base URL of the API
+base_url = "https://api.example.com/techniques/"
+# Bearer token
+bearer_token = "your_bearer_token_here"
+
+# Function to make API requests
+def search_technique(technique):
+    url = base_url + str(technique)
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if response.status_code == 200:
+        # Add technique to the response
+        data["technique"] = str(technique)
+    return data
+
+# Function to filter and select a result
+def select_result(results):
+    # Filter results based on criteria
+    filtered_results = [res for res in results if "name" in res and ("host cli" in res["name"] or "protected theater" in res["name"])]
+    if filtered_results:
+        # Pick the first result matching the criteria
+        return filtered_results[0]
+    return None
+
+# Read techniques from file
+with open("techniques.txt", "r") as file:
+    techniques = file.read().splitlines()
+
+# Iterate over techniques, search and modify the response
+results = []
+for technique in techniques:
+    result = search_technique(technique)
+    if result:
+        if "results" in result:
+            selected_result = select_result(result["results"])
+            if selected_result:
+                result["result"] = selected_result
+                results.append(result)
+
+# Save results to a file
+with open("results.json", "w") as outfile:
+    json.dump(results, outfile, indent=4)
+
+print("Results saved to results.json")
