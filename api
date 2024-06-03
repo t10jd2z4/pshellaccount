@@ -19,11 +19,12 @@ def search_technique(technique):
 
 # Function to filter and select a result
 def select_result(results):
-    # Filter results based on criteria
-    filtered_results = [res for res in results if "name" in res and ("host cli" in res["name"] or "protected theater" in res["name"])]
-    if filtered_results:
-        # Pick the first result matching the criteria
-        return filtered_results[0]
+    # Check if response text contains "host cli" or "protected theater"
+    for result in results:
+        if "host cli" in result["text"]:
+            return result
+        elif "protected theater" in result["text"]:
+            return result
     return None
 
 # Read techniques from file
