@@ -1,0 +1,15 @@
+.pdf
+.docx
+.xlsx
+.pptx
+.txt
+.csv
+.json
+.xml
+.html
+.doc
+.ini
+.yaml
+.toml
+.properties
+.md
