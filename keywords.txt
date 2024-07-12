@@ -1,0 +1,5 @@
+password
+credential
+apikey
+token
+secret
