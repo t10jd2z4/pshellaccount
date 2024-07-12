@@ -1,0 +1,79 @@
+import os
+import tkinter as tk
+from tkinter import filedialog
+import re
+
+# Read keywords and extensions from files
+def read_lines_from_file(filepath):
+    with open(filepath, 'r') as file:
+        return [line.strip() for line in file.readlines()]
+
+keywords = read_lines_from_file('keywords.txt')
+extensions = read_lines_from_file('extensions.txt')
+
+# Function to create a folder browser dialog
+def select_directory():
+    root = tk.Tk()
+    root.withdraw()
+    folder_selected = filedialog.askdirectory(title="Select the root directory to search")
+    return folder_selected
+
+# Function to write results to file and manage file splitting
+def write_results_to_file(results, output_dir, base_filename, max_lines=1000):
+    file_count = 1
+    current_lines = 0
+    output_file = os.path.join(output_dir, f"{base_filename}_1.txt")
+
+    with open(output_file, 'w') as f:
+        for result in results:
+            if current_lines >= max_lines:
+                file_count += 1
+                current_lines = 0
+                output_file = os.path.join(output_dir, f"{base_filename}_{file_count}.txt")
+                f = open(output_file, 'w')
+
+            f.write(result + "\n")
+            current_lines += 1
+
+# Function to search for keywords in files
+def search_files(root_path, keywords, extensions):
+    results = []
+    current_year = int(os.popen('date +%Y').read().strip())
+    last_year = current_year - 1
+
+    for subdir, _, files in os.walk(root_path):
+        for file in files:
+            file_path = os.path.join(subdir, file)
+            file_ext = os.path.splitext(file)[1]
+
+            if file_ext not in extensions:
+                continue
+
+            file_modified_year = int(os.path.getmtime(file_path))
+            if file_modified_year < last_year:
+                continue
+
+            with open(file_path, 'r', errors='ignore') as f:
+                try:
+                    for i, line in enumerate(f):
+                        for keyword in keywords:
+                            if re.search(r'\b' + re.escape(keyword) + r'\b', line):
+                                results.append(f"Found '{keyword}' in file: {file_path}\n{line.strip()}")
+                                break
+                except UnicodeDecodeError:
+                    continue
+
+    return results
+
+def main():
+    root_path = select_directory()
+    if not root_path:
+        print("No directory selected. Exiting.")
+        return
+
+    output_dir = os.path.dirname(os.path.abspath(__file__))
+    results = search_files(root_path, keywords, extensions)
+    write_results_to_file(results, output_dir, 'results')
+
+if __name__ == "__main__":
+    main()
