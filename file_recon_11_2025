@@ -1,0 +1,38 @@
+Add-Type -AssemblyName System.Windows.Forms
+
+# Folder selection dialog
+$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+$folderBrowser.Description = "Select the root directory to list files"
+$dialogResult = $folderBrowser.ShowDialog()
+
+if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK) { exit }
+
+$rootPath = $folderBrowser.SelectedPath
+$outputFile = "C:\path\to\file_inventory.txt"
+
+# Clear previous output
+"" | Out-File $outputFile
+
+# File extensions to search for
+$extensions = @(
+    ".pdf", ".txt", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".csv", ".xml", ".json", ".html", ".md",
+    ".bat", ".cmd", ".ps1", ".psm1",
+    ".sh", ".ksh", ".bash", ".zsh",
+    ".py", ".rb", ".pl", ".php", ".js", ".ts"
+)
+
+# Safe recursive scan
+Get-ChildItem -Path $rootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
+ForEach-Object {
+    try {
+        if ($extensions -contains $_.Extension.ToLower()) {
+            $line = $_.FullName
+            Add-Content -Path $outputFile -Value $line -ErrorAction SilentlyContinue
+            Write-Host "Found: $line"
+        }
+    }
+    catch { continue }
+}
+
+Write-Host "File inventory complete. Saved to $outputFile"
