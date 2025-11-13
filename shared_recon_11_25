@@ -19,12 +19,12 @@ $patterns = @(
     "apikey", "api key", "token", "secret", "auth", "bearer",
     "jwt", "refresh_token", "sessionid", "access_token",
 
-    # Common cloud keys
-    "AKIA[0-9A-Z]{16}",      # AWS Access Key ID
-    "ASIA[0-9A-Z]{16}",      # AWS Temp
-    "AIza[0-9A-Za-z\-_]{35}",# Google API
-    "ya29.[0-9A-Za-z\-_]+",  # Google OAuth
-    "sk_live_[0-9A-Za-z]+",  # Stripe
+    # Cloud keys
+    "AKIA[0-9A-Z]{16}",
+    "ASIA[0-9A-Z]{16}",
+    "AIza[0-9A-Za-z\-_]{35}",
+    "ya29.[0-9A-Za-z\-_]+",
+    "sk_live_[0-9A-Za-z]+",
     "sk_test_[0-9A-Za-z]+",
 
     # Private keys
@@ -43,53 +43,63 @@ $patterns = @(
     "connectionstring", "uid=", "pwd=", "db_password", "db_user"
 )
 
-# Helper: Extract text from Office/PDF formats
+# Extract text from various formats
 function Get-FileText($path) {
-    switch ($path.Extension.ToLower()) {
-        ".txt" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-        ".json" { return Get-Content $path -Raw }
-        ".xml" { return Get-Content $path -Raw }
-        ".html" { return Get-Content $path -Raw }
-        ".md" { return Get-Content $path -Raw }
-        ".yaml" { return Get-Content $path -Raw }
-        ".yml" { return Get-Content $path -Raw }
-        ".ini" { return Get-Content $path -Raw }
-        ".csv" { return Get-Content $path -Raw }
+    try {
+        switch ($path.Extension.ToLower()) {
+            ".txt" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".json" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".xml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".html" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".md" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".yaml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".yml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".ini" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".csv" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
 
-        # ZIP containers (docx, xlsx, pptx)
-        ".docx" { return (Expand-Zip -Path $path.FullName) }
-        ".xlsx" { return (Expand-Zip -Path $path.FullName) }
-        ".pptx" { return (Expand-Zip -Path $path.FullName) }
+            ".docx" { return (Expand-Zip -Path $path.FullName) }
+            ".xlsx" { return (Expand-Zip -Path $path.FullName) }
+            ".pptx" { return (Expand-Zip -Path $path.FullName) }
 
-        default { return $null }
+            default { return $null }
+        }
     }
+    catch { return $null }
 }
 
-# Unzip text extractor
+# Extract XML/TXT from Office ZIP containers
 function Expand-Zip($Path) {
-    $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
-    Expand-Archive -LiteralPath $Path -DestinationPath $tmp -ErrorAction SilentlyContinue
-    $text = Get-ChildItem $tmp -Recurse -File |
-        Where-Object {$_.Extension -match "xml|txt|json"} |
-        ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }
-    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-    return $text
+    try {
+        $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+        Expand-Archive -LiteralPath $Path -DestinationPath $tmp -ErrorAction SilentlyContinue
+        $text = Get-ChildItem $tmp -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {$_.Extension -match "xml|txt|json"} |
+            ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }
+
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        return $text
+    }
+    catch { return $null }
 }
 
-# Scan files
-Get-ChildItem -Path $rootPath -Recurse -File -Force | ForEach-Object {
+# Safely walk directories even with access denied
+Get-ChildItem -Path $rootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
+ForEach-Object {
     $file = $_.FullName
     Write-Host "Scanning: $file"
 
     $content = Get-FileText $_
-    if (-not $content) { continue }
+    if (-not $content) { return }
 
     foreach ($pattern in $patterns) {
-        if ($content -match $pattern) {
-            $msg = "MATCH: '$pattern' in $file"
-            $msg | Tee-Object -FilePath $outputFile -Append
-            Write-Host $msg -ForegroundColor Yellow
+        try {
+            if ($content -match $pattern) {
+                $msg = "MATCH: '$pattern' in $file"
+                $msg | Tee-Object -FilePath $outputFile -Append
+                Write-Host $msg -ForegroundColor Yellow
+            }
         }
+        catch { continue }
     }
 }
 
