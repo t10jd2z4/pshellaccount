@@ -1,0 +1,53 @@
+#edit 3
+Add-Type -AssemblyName System.Windows.Forms
+
+# Display a folder browser dialog to select the root path
+$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+$folderBrowser.Description = "Select the root directory of the shared drive"
+$folderBrowser.ShowNewFolderButton = $false
+
+# Show the folder browser dialog and capture the selected path
+$dialogResult = $folderBrowser.ShowDialog()
+
+if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
+    $rootPath = $folderBrowser.SelectedPath
+
+    # Define keywords to search for (e.g., passwords, credentials, API keys)
+    $keywords = "password", "credential", "apikey", "token", "secret"
+
+    # Specify the output file path for saving the results
+    $outputFilePath = "C:\path\to\results.txt"
+
+    # Clear existing content in the output file
+    Clear-Content -Path $outputFilePath
+
+    # Recursively search through all files in the specified directory
+    Get-ChildItem -Path $rootPath -Recurse -File | ForEach-Object {
+        $filePath = $_.FullName
+
+        # Output current directory being searched
+        Write-Host "Searching in: $filePath"
+
+        # Read file content as a single string for supported file types
+        if ($_.Extension -match "\.pdf|\.docx|\.xlsx|\.pptx|\.txt|\.csv|\.json|\.xml|\.html|\.xlsx|\.doc|\.ini|\.yaml|\.toml|\.properties|\.md") {
+            $fileContent = Get-Content -Path $filePath -Raw
+        }
+        else {
+            # Skip unsupported file types
+            Write-Host "Skipping unsupported file: $filePath"
+            return
+        }
+
+        # Check if any of the keywords exist in the file content
+        foreach ($keyword in $keywords) {
+            if ($fileContent -match $keyword) {
+                # Output and log the file path and keyword found
+                $result = "Found '$keyword' in file: $filePath"
+                Write-Host $result
+
+                # Append result to the output file
+                Add-Content -Path $outputFilePath -Value $result
+            }
+        }
+    }
+}
