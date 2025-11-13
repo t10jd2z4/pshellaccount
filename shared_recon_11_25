@@ -1,53 +1,96 @@
-#edit 3
 Add-Type -AssemblyName System.Windows.Forms
 
-# Display a folder browser dialog to select the root path
+# Folder selection dialog
 $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-$folderBrowser.Description = "Select the root directory of the shared drive"
-$folderBrowser.ShowNewFolderButton = $false
-
-# Show the folder browser dialog and capture the selected path
+$folderBrowser.Description = "Select the root directory to scan"
 $dialogResult = $folderBrowser.ShowDialog()
 
-if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
-    $rootPath = $folderBrowser.SelectedPath
+if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK) { exit }
 
-    # Define keywords to search for (e.g., passwords, credentials, API keys)
-    $keywords = "password", "credential", "apikey", "token", "secret"
+$rootPath = $folderBrowser.SelectedPath
+$outputFile = "C:\path\to\secret_scan_results.txt"
 
-    # Specify the output file path for saving the results
-    $outputFilePath = "C:\path\to\results.txt"
+# Clear previous output
+"" | Out-File $outputFile
 
-    # Clear existing content in the output file
-    Clear-Content -Path $outputFilePath
+# Keywords and sensitive patterns
+$patterns = @(
+    "password", "passwd", "credential", "creds?",
+    "apikey", "api key", "token", "secret", "auth", "bearer",
+    "jwt", "refresh_token", "sessionid", "access_token",
 
-    # Recursively search through all files in the specified directory
-    Get-ChildItem -Path $rootPath -Recurse -File | ForEach-Object {
-        $filePath = $_.FullName
+    # Common cloud keys
+    "AKIA[0-9A-Z]{16}",      # AWS Access Key ID
+    "ASIA[0-9A-Z]{16}",      # AWS Temp
+    "AIza[0-9A-Za-z\-_]{35}",# Google API
+    "ya29.[0-9A-Za-z\-_]+",  # Google OAuth
+    "sk_live_[0-9A-Za-z]+",  # Stripe
+    "sk_test_[0-9A-Za-z]+",
 
-        # Output current directory being searched
-        Write-Host "Searching in: $filePath"
+    # Private keys
+    "-----BEGIN PRIVATE KEY-----",
+    "-----BEGIN RSA PRIVATE KEY-----",
+    "-----BEGIN OPENSSH PRIVATE KEY-----",
+    "-----BEGIN EC PRIVATE KEY-----",
+    "-----BEGIN DSA PRIVATE KEY-----",
 
-        # Read file content as a single string for supported file types
-        if ($_.Extension -match "\.pdf|\.docx|\.xlsx|\.pptx|\.txt|\.csv|\.json|\.xml|\.html|\.xlsx|\.doc|\.ini|\.yaml|\.toml|\.properties|\.md") {
-            $fileContent = Get-Content -Path $filePath -Raw
-        }
-        else {
-            # Skip unsupported file types
-            Write-Host "Skipping unsupported file: $filePath"
-            return
-        }
+    # Certificates
+    "-----BEGIN CERTIFICATE-----",
+    "-----BEGIN PGP MESSAGE-----",
+    "ssh-rsa", "ssh-ed25519",
 
-        # Check if any of the keywords exist in the file content
-        foreach ($keyword in $keywords) {
-            if ($fileContent -match $keyword) {
-                # Output and log the file path and keyword found
-                $result = "Found '$keyword' in file: $filePath"
-                Write-Host $result
+    # DB credentials
+    "connectionstring", "uid=", "pwd=", "db_password", "db_user"
+)
 
-                # Append result to the output file
-                Add-Content -Path $outputFilePath -Value $result
-            }
+# Helper: Extract text from Office/PDF formats
+function Get-FileText($path) {
+    switch ($path.Extension.ToLower()) {
+        ".txt" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+        ".json" { return Get-Content $path -Raw }
+        ".xml" { return Get-Content $path -Raw }
+        ".html" { return Get-Content $path -Raw }
+        ".md" { return Get-Content $path -Raw }
+        ".yaml" { return Get-Content $path -Raw }
+        ".yml" { return Get-Content $path -Raw }
+        ".ini" { return Get-Content $path -Raw }
+        ".csv" { return Get-Content $path -Raw }
+
+        # ZIP containers (docx, xlsx, pptx)
+        ".docx" { return (Expand-Zip -Path $path.FullName) }
+        ".xlsx" { return (Expand-Zip -Path $path.FullName) }
+        ".pptx" { return (Expand-Zip -Path $path.FullName) }
+
+        default { return $null }
+    }
+}
+
+# Unzip text extractor
+function Expand-Zip($Path) {
+    $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+    Expand-Archive -LiteralPath $Path -DestinationPath $tmp -ErrorAction SilentlyContinue
+    $text = Get-ChildItem $tmp -Recurse -File |
+        Where-Object {$_.Extension -match "xml|txt|json"} |
+        ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    return $text
+}
+
+# Scan files
+Get-ChildItem -Path $rootPath -Recurse -File -Force | ForEach-Object {
+    $file = $_.FullName
+    Write-Host "Scanning: $file"
+
+    $content = Get-FileText $_
+    if (-not $content) { continue }
+
+    foreach ($pattern in $patterns) {
+        if ($content -match $pattern) {
+            $msg = "MATCH: '$pattern' in $file"
+            $msg | Tee-Object -FilePath $outputFile -Append
+            Write-Host $msg -ForegroundColor Yellow
         }
     }
 }
+
+Write-Host "Scan complete. Results saved to $outputFile"
