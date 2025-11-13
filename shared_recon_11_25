@@ -1,6 +1,8 @@
 Add-Type -AssemblyName System.Windows.Forms
 
+# ---------------------------
 # Folder selection dialog
+# ---------------------------
 $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
 $folderBrowser.Description = "Select the root directory to scan"
 $dialogResult = $folderBrowser.ShowDialog()
@@ -8,12 +10,18 @@ $dialogResult = $folderBrowser.ShowDialog()
 if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK) { exit }
 
 $rootPath = $folderBrowser.SelectedPath
-$outputFile = "C:\path\to\secret_scan_results.txt"
 
-# Clear previous output
+# Output files
+$outputFile          = "C:\path\to\secret_scan_results.txt"
+$skippedFileLog      = "C:\path\to\skipped_files.txt"
+
+# Clear previous outputs
 "" | Out-File $outputFile
+"" | Out-File $skippedFileLog
 
-# Keywords and sensitive patterns
+# ---------------------------
+# Search patterns
+# ---------------------------
 $patterns = @(
     "password", "passwd", "credential", "creds?",
     "apikey", "api key", "token", "secret", "auth", "bearer",
@@ -43,20 +51,60 @@ $patterns = @(
     "connectionstring", "uid=", "pwd=", "db_password", "db_user"
 )
 
-# Extract text from various formats
+# ---------------------------
+# SAFE ZIP EXPANDER (prevents freezing)
+# ---------------------------
+function Expand-Zip($Path) {
+    try {
+        $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+
+        # Start extraction as a background job for timeout protection
+        $job = Start-Job -ScriptBlock {
+            param($p, $t)
+            Expand-Archive -LiteralPath $p -DestinationPath $t -ErrorAction SilentlyContinue
+        } -ArgumentList $Path, $tmp
+
+        # Timeout (5 seconds)
+        if (-not (Wait-Job $job -Timeout 5)) {
+            Stop-Job $job -Force | Out-Null
+            Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+            return $null
+        }
+
+        Receive-Job $job | Out-Null
+
+        # Extract the text content
+        $text = Get-ChildItem $tmp -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {$_.Extension -match "xml|txt|json"} |
+            ForEach-Object {
+                Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+            }
+
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        return $text
+    }
+    catch {
+        return $null
+    }
+}
+
+# ---------------------------
+# Extract text from files
+# ---------------------------
 function Get-FileText($path) {
     try {
         switch ($path.Extension.ToLower()) {
-            ".txt" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".txt"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
             ".json" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".xml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".xml"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
             ".html" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".md" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".md"   { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
             ".yaml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".yml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".ini" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".csv" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".yml"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".ini"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
+            ".csv"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
 
+            # Office formats (use safe ZIP extractor)
             ".docx" { return (Expand-Zip -Path $path.FullName) }
             ".xlsx" { return (Expand-Zip -Path $path.FullName) }
             ".pptx" { return (Expand-Zip -Path $path.FullName) }
@@ -67,29 +115,21 @@ function Get-FileText($path) {
     catch { return $null }
 }
 
-# Extract XML/TXT from Office ZIP containers
-function Expand-Zip($Path) {
-    try {
-        $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
-        Expand-Archive -LiteralPath $Path -DestinationPath $tmp -ErrorAction SilentlyContinue
-        $text = Get-ChildItem $tmp -Recurse -File -ErrorAction SilentlyContinue |
-            Where-Object {$_.Extension -match "xml|txt|json"} |
-            ForEach-Object { Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue }
-
-        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-        return $text
-    }
-    catch { return $null }
-}
-
-# Safely walk directories even with access denied
+# ---------------------------
+# Main scanning loop
+# ---------------------------
 Get-ChildItem -Path $rootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
 ForEach-Object {
     $file = $_.FullName
     Write-Host "Scanning: $file"
 
     $content = Get-FileText $_
-    if (-not $content) { return }
+
+    # If unreadable or ZIP extraction failed, log skip
+    if (-not $content) {
+        Add-Content -Path $skippedFileLog -Value "Skipped: $file"
+        return
+    }
 
     foreach ($pattern in $patterns) {
         try {
@@ -103,4 +143,6 @@ ForEach-Object {
     }
 }
 
-Write-Host "Scan complete. Results saved to $outputFile"
+Write-Host "`nScan complete!"
+Write-Host "Results saved to:     $outputFile"
+Write-Host "Skipped files saved to $skippedFileLog"
