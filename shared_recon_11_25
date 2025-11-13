@@ -1,37 +1,53 @@
 Add-Type -AssemblyName System.Windows.Forms
 
-# ---------------------------
-# Folder selection dialog
-# ---------------------------
+#############################################
+# CONFIGURATION
+#############################################
+
+# Output for secret hits
+$outputFile = "C:\path\to\secret_scan_results.txt"
+
+# Output for manually skipped files
+$global:SkipLog = "C:\path\to\skipped_files.txt"
+
+# Clear logs
+"" | Out-File $outputFile
+"" | Out-File $global:SkipLog
+
+# Manual skip list in memory
+$global:SkipList = @()
+
+#############################################
+# LET USER SELECT STARTING DIRECTORY
+#############################################
+
 $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
 $folderBrowser.Description = "Select the root directory to scan"
 $dialogResult = $folderBrowser.ShowDialog()
 
-if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK) { exit }
+if ($dialogResult -ne [System.Windows.Forms.DialogResult]::OK) {
+    Write-Host "Canceled." -ForegroundColor Yellow
+    exit
+}
 
 $rootPath = $folderBrowser.SelectedPath
 
-# Output files
-$outputFile          = "C:\path\to\secret_scan_results.txt"
-$skippedFileLog      = "C:\path\to\skipped_files.txt"
 
-# Clear previous outputs
-"" | Out-File $outputFile
-"" | Out-File $skippedFileLog
+#############################################
+# KEYWORD / SECRET PATTERN LIST
+#############################################
 
-# ---------------------------
-# Search patterns
-# ---------------------------
 $patterns = @(
     "password", "passwd", "credential", "creds?",
-    "apikey", "api key", "token", "secret", "auth", "bearer",
-    "jwt", "refresh_token", "sessionid", "access_token",
+    "apikey", "api key", "token", "secret", "auth",
+    "bearer", "jwt", "refresh_token", "access_token",
+    "sessionid",
 
     # Cloud keys
     "AKIA[0-9A-Z]{16}",
     "ASIA[0-9A-Z]{16}",
     "AIza[0-9A-Za-z\-_]{35}",
-    "ya29.[0-9A-Za-z\-_]+",
+    "ya29\.[0-9A-Za-z\-_]+",
     "sk_live_[0-9A-Za-z]+",
     "sk_test_[0-9A-Za-z]+",
 
@@ -51,98 +67,159 @@ $patterns = @(
     "connectionstring", "uid=", "pwd=", "db_password", "db_user"
 )
 
-# ---------------------------
-# SAFE ZIP EXPANDER (prevents freezing)
-# ---------------------------
-function Expand-Zip($Path) {
-    try {
-        $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
 
-        # Start extraction as a background job for timeout protection
-        $job = Start-Job -ScriptBlock {
-            param($p, $t)
-            Expand-Archive -LiteralPath $p -DestinationPath $t -ErrorAction SilentlyContinue
-        } -ArgumentList $Path, $tmp
+#############################################
+# UTILITY — Check for manual skip (press ENTER)
+#############################################
 
-        # Timeout (5 seconds)
-        if (-not (Wait-Job $job -Timeout 5)) {
-            Stop-Job $job -Force | Out-Null
-            Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+function Check-ManualSkip {
+    if ([Console]::KeyAvailable) {
+        $key = [Console]::ReadKey($true)
+        if ($key.Key -eq "Enter") {
+            return $true
+        }
+    }
+    return $false
+}
+
+#############################################
+# WRAPPER — Runs an operation with manual skip
+#############################################
+
+function TryReadWithManualSkip([scriptblock]$action, $file) {
+    # Skip if already manually ignored
+    if ($global:SkipList -contains $file) {
+        return $null
+    }
+
+    $job = Start-Job -ScriptBlock {
+        param($a) & $a
+    } -ArgumentList $action
+
+    $elapsed = 0
+
+    while ($elapsed -lt 120) {  # 2-minute cap
+        Start-Sleep -Milliseconds 200
+        $elapsed += 0.2
+
+        # Manual skip
+        if (Check-ManualSkip) {
+            Write-Host ">>> Manual skip: $file" -ForegroundColor Yellow
+            $global:SkipList += $file
+            $file | Out-File -Append $global:SkipLog
+            Remove-Job $job -Force
             return $null
         }
 
-        Receive-Job $job | Out-Null
-
-        # Extract the text content
-        $text = Get-ChildItem $tmp -Recurse -File -ErrorAction SilentlyContinue |
-            Where-Object {$_.Extension -match "xml|txt|json"} |
-            ForEach-Object {
-                Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
-            }
-
-        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-        return $text
+        # Completed normally
+        if ($job.State -eq "Completed") {
+            $result = Receive-Job $job
+            Remove-Job $job -Force
+            return $result
+        }
     }
-    catch {
+
+    # Timeout skip
+    Write-Host ">>> Timeout skip: $file" -ForegroundColor DarkYellow
+    $global:SkipList += $file
+    $file | Out-File -Append $global:SkipLog
+    Remove-Job $job -Force
+    return $null
+}
+
+#############################################
+# ZIP EXPAND FOR OFFICE FILES
+#############################################
+
+function Expand-OfficeZip($path) {
+    $tmp = Join-Path $env:TEMP ([System.IO.Path]::GetRandomFileName())
+
+    try {
+        Expand-Archive -LiteralPath $path -DestinationPath $tmp -ErrorAction Stop
+    } catch {
         return $null
     }
-}
 
-# ---------------------------
-# Extract text from files
-# ---------------------------
-function Get-FileText($path) {
-    try {
-        switch ($path.Extension.ToLower()) {
-            ".txt"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".json" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".xml"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".html" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".md"   { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".yaml" { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".yml"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".ini"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-            ".csv"  { return Get-Content $path -Raw -ErrorAction SilentlyContinue }
-
-            # Office formats (use safe ZIP extractor)
-            ".docx" { return (Expand-Zip -Path $path.FullName) }
-            ".xlsx" { return (Expand-Zip -Path $path.FullName) }
-            ".pptx" { return (Expand-Zip -Path $path.FullName) }
-
-            default { return $null }
+    $text = Get-ChildItem $tmp -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -match "xml|txt|json" } |
+        ForEach-Object {
+            Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
         }
-    }
-    catch { return $null }
+
+    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    return $text
 }
 
-# ---------------------------
-# Main scanning loop
-# ---------------------------
-Get-ChildItem -Path $rootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
-ForEach-Object {
-    $file = $_.FullName
-    Write-Host "Scanning: $file"
 
-    $content = Get-FileText $_
+#############################################
+# FILE TEXT EXTRACTOR
+#############################################
 
-    # If unreadable or ZIP extraction failed, log skip
-    if (-not $content) {
-        Add-Content -Path $skippedFileLog -Value "Skipped: $file"
-        return
+function Get-FileText($fileObj) {
+    $file = $fileObj.FullName
+    $ext  = $fileObj.Extension.ToLower()
+
+    Write-Host "Reading: $file  (ENTER = skip)" -ForegroundColor Cyan
+
+    switch ($ext) {
+
+        # simple text-based formats
+        ".txt"   { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".json"  { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".xml"   { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".html"  { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".md"    { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".yaml"  { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".yml"   { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".ini"   { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+        ".csv"   { return TryReadWithManualSkip { Get-Content $file -Raw -ErrorAction Stop } $file }
+
+        # Office ZIP formats
+        ".docx"  { return TryReadWithManualSkip { Expand-OfficeZip $file } $file }
+        ".xlsx"  { return TryReadWithManualSkip { Expand-OfficeZip $file } $file }
+        ".pptx"  { return TryReadWithManualSkip { Expand-OfficeZip $file } $file }
+
+        # Binary Excel (.xls)
+        ".xls" {
+            return TryReadWithManualSkip {
+                $bytes = Get-Content $file -Encoding Byte -ErrorAction Stop
+                [System.Text.Encoding]::ASCII.GetString($bytes)
+            } $file
+        }
+
+        default { return $null }
     }
+}
 
-    foreach ($pattern in $patterns) {
-        try {
+#############################################
+# MAIN SCAN LOOP (safe for large shares)
+#############################################
+
+Write-Host "`nStarting scan... Press ENTER anytime to skip a file.`n" -ForegroundColor Green
+
+Get-ChildItem -Path $rootPath -Recurse -File -Force -ErrorAction SilentlyContinue |
+    ForEach-Object {
+
+    try {
+        $file = $_.FullName
+        $content = Get-FileText $_
+
+        if (-not $content) { return }
+
+        foreach ($pattern in $patterns) {
             if ($content -match $pattern) {
                 $msg = "MATCH: '$pattern' in $file"
-                $msg | Tee-Object -FilePath $outputFile -Append
                 Write-Host $msg -ForegroundColor Yellow
+                $msg | Out-File -Append $outputFile
             }
         }
-        catch { continue }
+    }
+    catch {
+        # Ignore access denied, long paths, etc.
+        return
     }
 }
 
-Write-Host "`nScan complete!"
-Write-Host "Results saved to:     $outputFile"
-Write-Host "Skipped files saved to $skippedFileLog"
+Write-Host "`nScan complete." -ForegroundColor Green
+Write-Host "Results saved to: $outputFile"
+Write-Host "Skipped files saved to: $global:SkipLog"
